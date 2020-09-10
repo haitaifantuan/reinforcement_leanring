@@ -160,7 +160,6 @@ class First_Visit_Monte_Carlo_Policy_Evaluation(object):
         print(policy_dict)
 
 
-
 obj = First_Visit_Monte_Carlo_Policy_Evaluation()
 obj.fire_calculation()
 obj.show_policy()
