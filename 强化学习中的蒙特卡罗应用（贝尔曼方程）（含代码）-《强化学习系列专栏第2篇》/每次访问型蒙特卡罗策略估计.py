@@ -8,9 +8,14 @@ Description: Should you have any question, do not hesitate to contact me via E-m
 import numpy as np
 import random
 import time
+import matplotlib.pyplot as plt
+from matplotlib.table import Table
 
+# 解决plt显示中文的问题
+plt.rcParams['font.sans-serif']=['SimHei']
+plt.rcParams['axes.unicode_minus'] = False
 
-class First_Visit_Monte_Carlo_Policy_Evaluation(object):
+class Every_Visit_Monte_Carlo_Policy_Evaluation(object):
     def __init__(self):
         self.total_rows = 4
         self.total_columns = 4
@@ -24,7 +29,8 @@ class First_Visit_Monte_Carlo_Policy_Evaluation(object):
         self.episode = 100000  # 共采集TOTAL_ITERATION幕数据
 
         # 初始化状态价值函数V
-        maze = np.zeros((self.total_rows, self.total_columns))  # 用0代表迷宫的每一格，这个maze只是方便我们看迷宫，没有其他作用。
+        # 用0代表迷宫的每一格，这个maze只是方便我们看迷宫，没有其他作用。
+        maze = np.zeros((self.total_rows, self.total_columns))
         print(maze)
 
 
@@ -90,77 +96,102 @@ class First_Visit_Monte_Carlo_Policy_Evaluation(object):
 
 
     def fire_calculation(self):
-        # 计算“状态-动作价值”
-        # 创建一个字典保存出现的状态-动作以及奖励
+        # 计算“状态价值”
+        # 创建一个字典保存出现的状态以及奖励
         begin_time = time.time()
 
         episode_record_dict = {}
-        final_state_action_reward_dict = {}  # 这个和state_action_reward_dict是有区别的，它是记录总体的。
-        final_state_action_count_dict = {}
+        final_state_reward_dict = {}
+        final_state_count_dict = {}
         for episode in range(self.episode):
             # 生成每一幕的数据
             all_episode_list = []
             # 随机生成一个起始状态
             init_state = self.generate_initial_state(self.total_rows, self.total_columns)
             # 生成一幕数据
-            episode_record_dict[episode] = self.generate_one_episode_data(init_state)
+            current_generated_episode = self.generate_one_episode_data(init_state)
+            episode_record_dict[episode] = current_generated_episode
             # 对这幕数据进行遍历，然后将出现过的状态进行统计
-            has_been_counted = {}  # 记录状态是否在该幕出现过
-            state_action_reward_dict = {}  # 记录每一个状态当前的总共的reward
-            for idx, eachTuple in enumerate(episode_record_dict[episode]):
+            timeStep_state_reward_dict = {}  # 记录每一个状态当前的总共的reward
+            for timeStep, eachTuple in enumerate(current_generated_episode):
                 # 先判断是不是到了终点，如果是的话就跳出循环
-                if idx == len(episode_record_dict[episode])-1:
+                if timeStep == len(episode_record_dict[episode])-1:
                     break
 
-                # 将state和action组合成字符串，方便作为dict的key
-                state_action_combination = str(eachTuple[0][0]) + str(eachTuple[0][1]) + str(eachTuple[1])
+                # 将state和timeStep组合成字符串，方便作为dict的key
+                timeStep_state_combination = str(timeStep) + str(eachTuple[0][0]) + str(eachTuple[0][1])
 
                 # 对state_action_reward_dict()里的所有的key都累加当前的reward。
-                for key in state_action_reward_dict.keys():
-                    state_action_reward_dict[key] += eachTuple[2]
+                for key in timeStep_state_reward_dict.keys():
+                    timeStep_state_reward_dict[key] += eachTuple[2]
 
                 # 检测当前这一幕该状态和动作组合是否出现过
-                if state_action_combination not in has_been_counted.keys():
-                    # 如果不存在在state_count_dict.keys()里，说明是第一次碰到该状态。
-                    has_been_counted[state_action_combination] = 1  # 随便赋值一个value
-                    state_action_reward_dict[state_action_combination] = eachTuple[2]
+                if timeStep_state_combination not in timeStep_state_reward_dict.keys():
+                    # 如果不存在在timeStep_state_reward_dict.keys()里，那就把它加进去。
+                    # 其实每一个时间点都会被添加进去，因为这是“每次访问型蒙特卡罗策略估计”。
+                    timeStep_state_reward_dict[timeStep_state_combination] = eachTuple[2]
 
             # 将该募最后统计到总的变量里。
-            for state_action, reward in state_action_reward_dict.items():
-                if state_action not in final_state_action_reward_dict.keys():
-                    final_state_action_reward_dict[state_action] = reward  # 将该状态-动作计数设为reward
-                    final_state_action_count_dict[state_action] = 1  # 将该状态-动作计数设为1
+            for timeStep_state, reward in timeStep_state_reward_dict.items():
+                # 把timeStep剥离开，取出state
+                state = timeStep_state[-2:]
+                if state not in final_state_reward_dict.keys():
+                    final_state_reward_dict[state] = reward  # 将该状态-动作计数设为reward
+                    final_state_count_dict[state] = 1  # 将该状态-动作计数设为1
                 else:
-                    # 否则说明其他幕中出现过该状态-动作，并且曾经统计到final_state_action_reward_dict和final_state_action_count_dict变量里面
+                    # 否则说明其他幕中出现过该状态，并且曾经统计到final_state_action_reward_dict和final_state_action_count_dict变量里面
                     # 直接累加就好了。
-                    final_state_action_reward_dict[state_action] += reward
-                    final_state_action_count_dict[state_action] += 1
+                    final_state_reward_dict[state] += reward
+                    final_state_count_dict[state] += 1
 
             if episode % 100 == 0:
                 print("第{}个episode已完成=====已花费{}分钟".format(episode, (time.time() - begin_time) / 60))
 
-        # 计算下最终的状态-动作价值
+        # 计算下最终的状态价值
         # 由于是按概率采样，因此可能会导致某些动作-状态没有出现过，这个时候就需要一些方法去解决了。
         # 一种方法是增加采样次数，这种方法相当于是暴力解决。
         # 另一种方法可以参考sutton的《强化学习第二版》的98页的5.4内容
-        self.averaged_state_action_value_dict = {}
-        for state_action, reward in final_state_action_reward_dict.items():
-            self.averaged_state_action_value_dict[state_action] = reward / final_state_action_count_dict[state_action]
+        self.averaged_state_value_dict = {}
+        for state, reward in final_state_reward_dict.items():
+            self.averaged_state_value_dict[state] = reward / final_state_count_dict[state]
 
-        # print(self.averaged_state_action_value_dict)
-
-
-    def show_policy(self):
-        policy_dict = {}
-        for state_action, value in self.averaged_state_action_value_dict.items():
-            if state_action[0:2] not in policy_dict.keys():
-                policy_dict[state_action[0:2]] = {self.action_dict[int(state_action[2])]: value}
-            else:
-                policy_dict[state_action[0:2]][self.action_dict[int(state_action[2])]] = value
-
-        print(policy_dict)
+        print(self.averaged_state_value_dict)
 
 
-obj = First_Visit_Monte_Carlo_Policy_Evaluation()
+    def draw_value_picture(self):
+        fig, ax = plt.subplots()
+
+        ax.set_axis_off()
+
+        tbl = Table(ax, bbox=[0, 0, 1, 1])
+
+        width = 1.0 / (self.total_columns + 1)
+        height = 1.0 / (self.total_rows + 1)
+
+        # 给表格的中间赋值，赋值为该状态的价值
+        for row_idx in range(self.total_rows):
+            for column_idx in range(self.total_columns):
+                if (row_idx == 0 and column_idx == 0) or (row_idx == 3 and column_idx == 3):
+                    value = 0
+                else:
+                    value = self.averaged_state_value_dict[str(row_idx)+str(column_idx)]
+
+                tbl.add_cell(row_idx+1, column_idx+1, width, height,
+                             text=value,
+                             loc='center', facecolor='white')
+
+        # 给表格行加上索引
+        for row_idx in range(self.total_rows):
+            tbl.add_cell(row_idx+1, 0, width, height, text=row_idx, loc='right', edgecolor='none', facecolor='none')
+
+        # 给表格列加上索引
+        for column_idx in range(self.total_columns):
+            tbl.add_cell(0, column_idx+1, width, height/4, text=column_idx, loc='center', edgecolor='none', facecolor='none')
+
+        ax.add_table(tbl)
+        plt.show()
+
+
+obj = Every_Visit_Monte_Carlo_Policy_Evaluation()
 obj.fire_calculation()
-obj.show_policy()
+obj.draw_value_picture()

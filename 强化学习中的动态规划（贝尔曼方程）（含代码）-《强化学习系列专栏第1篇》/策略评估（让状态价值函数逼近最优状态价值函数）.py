@@ -2,7 +2,7 @@
 '''
 Author: Haitaifantuan
 Create Date: 2020-09-07 10:10:17
-Author Email: zhangzhuoren1@gmail.com
+Author Email: 47970915@qq.com
 Description: Should you have any question, do not hesitate to contact me via E-mail.
 '''
 import numpy as np
