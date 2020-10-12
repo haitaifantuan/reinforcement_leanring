@@ -113,6 +113,7 @@ class SARSA(object):
                 if random.random() < self.epsilon:
                     next_state_max_action_idx = random.choice(list(self.action_dict.keys()))
                 else:
+                    # 在这里，下一个动作应该根据策略去选择的，也就是根据概率去选择，这里我们简化了下，我们直接选取值函数最大的值对应的动作
                     max_value = np.max(self.q_function[next_state_row_idx][next_state_column_idx])
                     next_state_max_action_idx = random.choice(
                         np.where(self.q_function[next_state_row_idx][next_state_column_idx] == max_value)[0])
